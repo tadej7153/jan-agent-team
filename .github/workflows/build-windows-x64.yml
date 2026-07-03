@@ -1,0 +1,91 @@
+name: Build Windows x64
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-windows-x64.yml"
+      - "core/**"
+      - "web-app/**"
+      - "src-tauri/**"
+      - "extensions/**"
+      - "package.json"
+      - "yarn.lock"
+      - "Makefile"
+
+concurrency:
+  group: build-windows-x64-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Windows x64 installer
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Setup Yarn
+        shell: bash
+        run: |
+          corepack enable
+          corepack prepare yarn@4.5.3 --activate
+          yarn config set -H enableImmutableInstalls false
+          yarn --version
+
+      - name: Install dependencies
+        shell: bash
+        run: yarn install
+
+      - name: Prepare Tauri assets and binaries
+        shell: bash
+        run: |
+          mkdir -p src-tauri/resources/bin
+          yarn tauri icon ./src-tauri/app-icon.png
+          yarn copy:assets:tauri
+          yarn download:bin
+
+      - name: Build Jan CLI
+        shell: bash
+        run: yarn build:cli
+
+      - name: Build Windows installer
+        shell: bash
+        run: yarn tauri build
+
+      - name: Upload NSIS exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: jan-agent-team-windows-x64-exe
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+      - name: Upload MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: jan-agent-team-windows-x64-msi
+          path: src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
