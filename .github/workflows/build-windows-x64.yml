@@ -2,6 +2,16 @@ name: Build Windows x64
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag, for example v0.1.0-agent-team"
+        required: true
+        default: "v0.1.0-agent-team"
+      publish_release:
+        description: "Upload installers to GitHub Releases"
+        type: boolean
+        required: true
+        default: false
   push:
     branches:
       - main
@@ -24,7 +34,7 @@ jobs:
     name: Windows x64 installer
     runs-on: windows-latest
     permissions:
-      contents: read
+      contents: write
     env:
       CARGO_TERM_COLOR: always
       RUST_BACKTRACE: 1
@@ -60,6 +70,13 @@ jobs:
         shell: bash
         run: yarn install
 
+      - name: Build workspace packages
+        shell: bash
+        run: |
+          yarn build:tauri:plugin:api
+          yarn build:core
+          yarn build:extensions
+
       - name: Prepare Tauri assets and binaries
         shell: bash
         run: |
@@ -89,3 +106,19 @@ jobs:
           name: jan-agent-team-windows-x64-msi
           path: src-tauri/target/release/bundle/msi/*.msi
           if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          name: Jan Agent Team Windows x64 ${{ inputs.version }}
+          prerelease: true
+          generate_release_notes: false
+          body: |
+            Windows x64 build for Jan Agent Team.
+
+            This build is unsigned. Windows SmartScreen may show a warning on first launch.
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
