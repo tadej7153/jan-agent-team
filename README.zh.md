@@ -1,184 +1,146 @@
-# Jan - 开源 ChatGPT 替代方案
+# Jan Agent Team
 
-<img width="2048" height="280" alt="github jan banner" src="https://github.com/user-attachments/assets/f3f87889-c133-433b-b250-236218150d3f" />
+基于 [janhq/jan](https://github.com/janhq/jan) 二次开发的 AI 客户端，在 Jan 原有的本地模型、云模型、助手、MCP 和 OpenAI-compatible API 体验上，增加了 Agent / Agent Team 多角色团队聊天能力。
 
-<p align="center">
-  <a href="README.md">English</a> ·
-  <strong>中文</strong> ·
-  <a href="README.ja.md">日本語</a>
-</p>
+> 当前版本是预览版。UI 和交互尽量保持 Jan 客户端原有风格；多 Agent 编排通过本地 AG2 Python runtime 实现，优先支持云端 OpenAI-compatible 模型。
 
-<p align="center">
-  <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-  <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/m/janhq/jan"/>
-  <img alt="Github Last Commit" src="https://img.shields.io/github/last-commit/janhq/jan"/>
-  <img alt="Github Contributors" src="https://img.shields.io/github/contributors/janhq/jan"/>
-  <img alt="GitHub closed issues" src="https://img.shields.io/github/issues-closed/janhq/jan"/>
-  <img alt="Discord" src="https://img.shields.io/discord/1107178041848909847?label=discord"/>
-</p>
+## 下载
 
-<p align="center">
-  <a href="https://jan.ai/docs/desktop">快速开始</a>
-  - <a href="https://discord.gg/Exe46xPMbK">社区</a>
-  - <a href="https://jan.ai/changelog">更新日志</a>
-  - <a href="https://github.com/janhq/jan/issues">问题反馈</a>
-</p>
+最新预览版：
 
-Jan 致力于通过易于使用的产品，将开源 AI 的精华呈现给大众。下载并运行大语言模型 (LLMs)，享有**完全的控制权**和**隐私保护**。
+[Jan Agent Team v0.8.3-agent-team-1](https://github.com/tadej7153/jan-agent-team/releases/tag/v0.8.3-agent-team-1)
 
-## 安装 (Installation)
+| 平台 | 安装包 |
+| --- | --- |
+| macOS Apple Silicon | [Jan_0.8.3_aarch64.dmg](https://github.com/tadej7153/jan-agent-team/releases/download/v0.8.3-agent-team-1/Jan_0.8.3_aarch64.dmg) |
+| Windows x64 | [Jan_0.8.3_x64-setup.exe](https://github.com/tadej7153/jan-agent-team/releases/download/v0.8.3-agent-team-1/Jan_0.8.3_x64-setup.exe) |
+| Windows x64 MSI | [Jan_0.8.3_x64_en-US.msi](https://github.com/tadej7153/jan-agent-team/releases/download/v0.8.3-agent-team-1/Jan_0.8.3_x64_en-US.msi) |
 
-<p align="center">
-  <table>
-    <tr>
-      <!-- Microsoft Store Badge -->
-      <td align="center" valign="middle">
-        <a href="https://apps.microsoft.com/detail/xpdcnfn5cpzlqb">
-          <img height="60"
-            width="200"
-               alt="从 Microsoft Store 获取"
-               src="https://get.microsoft.com/images/en-us%20dark.svg"/>
-        </a>
-      </td>
-      <!-- Spacer -->
-      <td width="20"></td>
-      <!-- Flathub Official Badge -->
-      <td align="center" valign="middle">
-        <a href="https://flathub.org/apps/ai.jan.Jan">
-          <img height="60"
-            width="200"
-               alt="在 Flathub 上获取"
-               src="https://flathub.org/assets/badges/flathub-badge-en.svg"/>
-        </a>
-      </td>
-    </tr>
-  </table>
-</p>
+这些安装包目前未签名。macOS Gatekeeper 或 Windows SmartScreen 可能会在首次打开时提示风险。
 
-最简单的入门方式是根据您的操作系统下载以下版本之一：
+## 核心功能
 
-<table>
-  <tr>
-    <td><b>平台</b></td>
-    <td><b>下载链接</b></td>
-  </tr>
-  <tr>
-    <td><b>Windows</b></td>
-    <td><a href='https://app.jan.ai/download/latest/win-x64'>jan.exe</a></td>
-  </tr>
-  <tr>
-    <td><b>macOS</b></td>
-    <td><a href='https://app.jan.ai/download/latest/mac-universal'>jan.dmg</a></td>
-  </tr>
-  <tr>
-    <td><b>Linux (deb)</b></td>
-    <td><a href='https://app.jan.ai/download/latest/linux-amd64-deb'>jan.deb</a></td>
-  </tr>
-  <tr>
-    <td><b>Linux (AppImage)</b></td>
-    <td><a href='https://app.jan.ai/download/latest/linux-amd64-appimage'>jan.AppImage</a></td>
-  </tr>
-  <tr>
-    <td><b>Linux (Arm64)</b></td>
-    <td><a href='https://github.com/janhq/jan/issues/4543#issuecomment-3734911349'>操作指南</a></td>
-  </tr>
-</table>
+- **Agent 管理**：创建、编辑、删除 Agent，并配置名称、头像、模型、system prompt、工具权限和职责描述。
+- **Agent Team 管理**：创建团队，配置成员、发言顺序、最大讨论轮数、总结员和手动点名能力。
+- **多 Agent 对话**：在同一个 Jan thread 中让多个 Agent 轮流发言，消息显示 Agent 名字和头像。
+- **@Agent 点名**：用户可以点名单个 Agent，由该 Agent 单独回复。
+- **团队讨论和总结**：团队成员按配置顺序讨论，最后可由总结员输出结论。
+- **统一对话角色选择器**：原 Assistant 选择入口现在支持选择 `无 / Assistant / Agent / Agent Team`。
+- **真实 AG2 runtime 链路**：选择 Agent 或 Agent Team 后，会走本地 AG2 runtime，不只是前端假显示。
 
+## 和 Jan 原版的关系
 
-您可以从 [jan.ai](https://jan.ai/) 或 [GitHub Releases](https://github.com/janhq/jan/releases) 下载。
+这个项目不是从零开发的客户端，而是 Jan 的 fork：
 
-## 核心功能 (Features)
+- Jan 仍负责客户端主体、会话、UI、模型配置、助手、MCP、OpenAI-compatible API 等基础能力。
+- Agent Team 功能在 Jan 设置页和聊天入口中扩展。
+- 多 Agent 编排由随应用启动的本地 Python runtime 负责。
+- 上游 Jan 使用 Apache 2.0 许可证，本项目继续保留对应许可证和声明。
 
-- **本地 AI 模型**：从 HuggingFace 下载并运行大语言模型（Llama, Gemma, Qwen, GPT-oss 等）
-- **云端集成**：通过 OpenAI 连接 GPT 模型，通过 Anthropic 连接 Claude 模型，以及 Mistral, Groq 等
-- **自定义助手**：为您的任务创建专门的 AI 助手
-- **兼容 OpenAI 的 API**：在 `localhost:1337` 运行本地服务器，供其他应用程序调用
-- **模型上下文协议 (MCP)**：集成 MCP 以实现 Agent 自动化能力
-- **隐私优先**：当您需要时，所有内容均在本地运行
+如果你只需要官方 Jan，请使用 [janhq/jan](https://github.com/janhq/jan) 或 [jan.ai](https://jan.ai/)。
 
-## 源码构建 (Build from Source)
+## AG2 runtime
 
-适合喜欢探索过程的用户：
+Agent / Agent Team 模式会懒启动本地 runtime：
 
-### 前置要求 (Prerequisites)
+- 地址：`127.0.0.1:8765`
+- 健康检查：`GET /health`
+- 多 Agent 对话：`POST /v1/agent-team/runs`
+- runtime 源码位置：`src-tauri/resources/agent-runtime`
 
-- Node.js ≥ 20.0.0
-- Yarn ≥ 4.5.3
-- Make ≥ 3.81
-- Rust (用于 Tauri 构建)
-- (仅限 macOS Apple Silicon) MetalToolchain 命令：`xcodebuild -downloadComponent MetalToolchain`
+前端会把当前会话模型配置、Agent 专属模型配置、team 配置和用户输入发送给本机 runtime。API key 只发往 `127.0.0.1`，不会展示在错误信息中。
 
-### 使用 Make 运行
+## 当前支持
+
+- 云端 OpenAI-compatible API
+- 单 Agent 按“单成员 Agent Team”运行
+- Team round-robin / 顺序流水线式讨论
+- 讨论结束后的总结员输出
+- 设置页中的 Agents 管理页和团队管理页
+- macOS Apple Silicon DMG
+- Windows x64 exe / MSI
+
+## 当前限制
+
+- 预览版默认面向云端模型；Jan 官方 MLX 本地后端不是当前重点。
+- `auto`、`random`、`manual` 等更复杂发言调度会先降级为稳定可用的顺序策略。
+- Agent / Team 模式第一版以文本输入为主，附件、多模态和复杂工具链还需要继续增强。
+- 安装包未签名，首次运行可能需要手动确认。
+
+## 使用方式
+
+1. 安装并打开应用。
+2. 在设置里配置云端模型提供方，例如 OpenAI-compatible API。
+3. 进入 `设置 -> Agent 团队`。
+4. 在 `Agents` 页创建 Agent。
+5. 在 `团队` 页创建 Agent Team，并选择成员、顺序、轮数和总结员。
+6. 回到聊天页，在对话角色选择器中选择 Assistant、Agent 或 Agent Team。
+7. 发送消息，或使用 `@AgentName` 点名单个 Agent。
+
+## 从源码运行
+
+### 环境要求
+
+- Node.js >= 20
+- Yarn >= 4.5.3
+- Rust stable
+- Tauri 所需系统依赖
+- macOS Apple Silicon 构建本地包时需要 Xcode Command Line Tools
+
+### 安装依赖
 
 ```bash
-git clone https://github.com/janhq/jan
-cd jan
-make dev
+corepack enable
+corepack prepare yarn@4.5.3 --activate
+yarn install
 ```
 
-这将处理所有步骤：安装依赖、构建核心组件并启动应用程序。
-
-**可用的 make 命令：**
-- `make dev` - 完整的开发环境设置与启动
-- `make build` - 生产版本构建
-- `make test` - 运行测试和 lint 检查
-- `make clean` - 清除所有生成文件并重新开始
-
-### 手动构建命令
+### 开发运行
 
 ```bash
-yarn install
-yarn build:tauri:plugin:api
-yarn build:core
-yarn build:extensions
 yarn dev
 ```
 
-## 系统要求 (System Requirements)
+### 构建 macOS Apple Silicon
 
-**获得良好体验的最低配置：**
+```bash
+yarn tauri build --target aarch64-apple-darwin
+```
 
-- **macOS**: 13.6+ (3B 模型需 8GB RAM，7B 需 16GB，13B 需 32GB)
-- **Windows**: 10+，支持 NVIDIA/AMD/Intel Arc GPU 加速
-- **Linux**: 大多数发行版均可，支持 GPU 加速
+### 关键测试
 
-有关详细的兼容性说明，请查看我们的[安装指南](https://jan.ai/docs/desktop/mac)。
+```bash
+yarn workspace @janhq/web-app tsc -b
+yarn workspace @janhq/web-app test
+```
 
-## 故障排除 (Troubleshooting)
+## 后续更新 Jan 上游
 
-如果运行出现问题：
+建议把官方 Jan 保留为 `upstream` remote，定期合并：
 
-1. 查看我们的[故障排除文档](https://jan.ai/docs/desktop/troubleshooting)
-2. 复制您的错误日志和系统规格信息
-3. 在我们的 Discord `#🆘|jan-help` 频道寻求帮助：[Discord](https://discord.gg/FTk2MvZwJH)
+```bash
+git remote add upstream https://github.com/janhq/jan.git
+git fetch upstream
+git checkout main
+git merge upstream/main
+```
 
+合并上游时，需要重点检查：
 
-## 贡献 (Contributing)
+- Jan 的 thread / assistant / provider 数据结构变化
+- Tauri 打包资源和权限变化
+- web-app 路由和设置页结构变化
+- runtime resource 打包路径变化
 
-欢迎参与贡献！请参阅 [CONTRIBUTING.md](CONTRIBUTING.md) 以获取完整信息。
+## License
 
-## 相关链接 (Links)
+Apache 2.0. See [LICENSE](LICENSE).
 
-- [文档](https://jan.ai/docs) - 建议阅读的操作手册
-- [API 参考](https://jan.ai/api-reference) - 供开发者参考
-- [更新日志](https://jan.ai/changelog) - 了解修复和变更内容
-- [Discord](https://discord.gg/FTk2MvZwJH) - 社区所在地
+## Acknowledgements
 
-## 联系我们 (Contact)
+Built on:
 
-- **Bug 反馈**: [GitHub Issues](https://github.com/janhq/jan/issues)
-- **商务合作**: hello@jan.ai
-- **人才招聘**: hr@jan.ai
-- **综合讨论**: [Discord](https://discord.gg/FTk2MvZwJH)
-
-## 许可证 (License)
-
-Apache 2.0 - 因为分享即是关爱。
-
-## 致谢 (Acknowledgements)
-
-站在巨人的肩膀上构建：
-
-- [Llama.cpp](https://github.com/ggerganov/llama.cpp)
+- [Jan](https://github.com/janhq/jan)
+- [AG2](https://github.com/ag2ai/ag2)
 - [Tauri](https://tauri.app/)
-- [Scalar](https://github.com/scalar/scalar)
+- [Llama.cpp](https://github.com/ggerganov/llama.cpp)
