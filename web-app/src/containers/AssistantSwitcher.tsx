@@ -1,5 +1,10 @@
-import { useEffect, useRef } from 'react'
-import { IconChevronDown, IconUser } from '@tabler/icons-react'
+import { useEffect, useMemo, useRef } from 'react'
+import {
+  IconChevronDown,
+  IconRobot,
+  IconUser,
+  IconUsersGroup,
+} from '@tabler/icons-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,13 +20,17 @@ import { AvatarEmoji } from '@/containers/AvatarEmoji'
 import { AssistantsMenu } from '@/components/AssistantsMenu'
 import { useAssistantSwitcher } from '@/hooks/useAssistantSwitcher'
 import { useTranslation } from '@/i18n/react-i18next-compat'
+import { useAgentTeams } from '@/hooks/useAgentTeams'
+import {
+  ChatActorSelection,
+  getChatActorLabel,
+  isSameChatActor,
+} from '@/lib/chat-actors'
 
 export interface AssistantSwitcherProps {
   assistants: Assistant[]
-  currentThread: Thread | undefined
-  selectedAssistantId: string | undefined
-  setSelectedAssistantId: (id: string) => void
-  updateCurrentThreadAssistant: (assistant: Assistant) => void
+  selectedActor: ChatActorSelection
+  onSelectActor: (actor: ChatActorSelection) => void
 }
 
 const isMac =
@@ -29,46 +38,43 @@ const isMac =
   navigator.userAgent.toUpperCase().indexOf('MAC') >= 0
 const shortcutHint = `${isMac ? '⌘' : 'Ctrl'}+J`
 
-// Dedicated, always-visible assistant switcher for the chat input. Rendered
-// only when more than one assistant exists; otherwise switching is moot.
 export function AssistantSwitcher({
   assistants,
-  currentThread,
-  selectedAssistantId,
-  setSelectedAssistantId,
-  updateCurrentThreadAssistant,
+  selectedActor,
+  onSelectActor,
 }: AssistantSwitcherProps) {
   const { t } = useTranslation()
   const open = useAssistantSwitcher((s) => s.open)
   const setOpen = useAssistantSwitcher((s) => s.setOpen)
   const setCycleHandler = useAssistantSwitcher((s) => s.setCycleHandler)
+  const agents = useAgentTeams((state) => state.agents)
+  const teams = useAgentTeams((state) => state.teams)
 
-  const threadAssistant = currentThread?.assistants?.[0]
-  const isThreadAssistant =
-    !!threadAssistant && threadAssistant.id !== 'model-only'
-  const activeAssistant = currentThread
-    ? isThreadAssistant
-      ? threadAssistant
-      : undefined
-    : assistants.find((a) => a.id === selectedAssistantId)
+  const actors = useMemo<ChatActorSelection[]>(
+    () => [
+      ...assistants.map((assistant) => ({
+        type: 'assistant' as const,
+        id: assistant.id,
+      })),
+      ...agents.map((agent) => ({ type: 'agent' as const, id: agent.id })),
+      ...teams.map((team) => ({ type: 'team' as const, id: team.id })),
+    ],
+    [agents, assistants, teams]
+  )
 
-  // Keep a ref to the freshest cycle logic so the registered handler (stable
-  // across renders) always advances using current props.
+  const label = getChatActorLabel(
+    selectedActor,
+    assistants,
+    agents,
+    teams,
+    t('common:noAssistant')
+  )
+
   const cycleRef = useRef<() => void>(() => {})
   cycleRef.current = () => {
-    if (assistants.length <= 1) return
-    const activeId = currentThread
-      ? isThreadAssistant
-        ? threadAssistant?.id
-        : undefined
-      : selectedAssistantId
-    const idx = assistants.findIndex((a) => a.id === activeId)
-    const next = assistants[(idx + 1) % assistants.length]
-    if (currentThread) {
-      updateCurrentThreadAssistant(next)
-    } else {
-      setSelectedAssistantId(next.id)
-    }
+    if (actors.length <= 1) return
+    const idx = actors.findIndex((actor) => isSameChatActor(actor, selectedActor))
+    onSelectActor(actors[(idx + 1) % actors.length])
   }
 
   useEffect(() => {
@@ -80,7 +86,7 @@ export function AssistantSwitcher({
     }
   }, [setCycleHandler, setOpen])
 
-  if (assistants.length <= 1) return null
+  if (actors.length <= 1) return null
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -93,17 +99,13 @@ export function AssistantSwitcher({
               className="h-7 px-2 gap-1 min-w-0"
               aria-label="Switch assistant"
             >
-              {activeAssistant?.avatar ? (
-                <AvatarEmoji
-                  avatar={activeAssistant.avatar}
-                  imageClassName="size-4 object-contain"
-                  textClassName="text-sm"
-                />
-              ) : (
-                <IconUser size={14} className="text-muted-foreground" />
-              )}
+              <ActorIcon
+                actor={selectedActor}
+                assistants={assistants}
+                agents={agents}
+              />
               <span className="text-sm font-medium truncate max-w-32">
-                {activeAssistant?.name ?? t('common:noAssistant')}
+                {label}
               </span>
               <IconChevronDown size={14} className="text-muted-foreground" />
             </Button>
@@ -113,15 +115,48 @@ export function AssistantSwitcher({
           <p>Switch assistant ({shortcutHint})</p>
         </TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+      <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
         <AssistantsMenu
-          selectedAssistant={selectedAssistantId}
-          setSelectedAssistant={setSelectedAssistantId}
-          currentThread={currentThread}
-          updateCurrentThreadAssistant={updateCurrentThreadAssistant}
+          selectedActor={selectedActor}
+          onSelectActor={onSelectActor}
           assistants={assistants}
         />
       </DropdownMenuContent>
     </DropdownMenu>
   )
+}
+
+function ActorIcon({
+  actor,
+  assistants,
+  agents,
+}: {
+  actor: ChatActorSelection
+  assistants: Assistant[]
+  agents: ReturnType<typeof useAgentTeams.getState>['agents']
+}) {
+  if (actor.type === 'assistant') {
+    const assistant = assistants.find((item) => item.id === actor.id)
+    return assistant?.avatar ? (
+      <AvatarEmoji
+        avatar={assistant.avatar}
+        imageClassName="size-4 object-contain"
+        textClassName="text-sm"
+      />
+    ) : (
+      <IconUser size={14} className="text-muted-foreground" />
+    )
+  }
+  if (actor.type === 'agent') {
+    const agent = agents.find((item) => item.id === actor.id)
+    return (
+      <span className="size-4 flex items-center justify-center text-sm">
+        {agent?.avatar || <IconRobot size={14} className="text-muted-foreground" />}
+      </span>
+    )
+  }
+  if (actor.type === 'team') {
+    return <IconUsersGroup size={14} className="text-muted-foreground" />
+  }
+  return <IconUser size={14} className="text-muted-foreground" />
 }

@@ -1031,10 +1031,30 @@ function ThreadDetail() {
       }
 
       const agentState = useAgentTeams.getState()
-      const team = agentState.getTeamById(agentTeamBinding.teamId)
-      const agents = agentState.getTeamMembers(agentTeamBinding.teamId)
+      const singleAgent = agentState.getAgentById(agentTeamBinding.agentId)
+      const team =
+        agentState.getTeamById(agentTeamBinding.teamId) ??
+        (singleAgent
+          ? {
+              id: `single-agent-${singleAgent.id}`,
+              name: singleAgent.name,
+              description: singleAgent.description,
+              memberIds: [singleAgent.id],
+              speakerOrder: 'round_robin' as const,
+              maxRounds: 1,
+              summarizerAgentId: undefined,
+              allowMentions: true,
+              createdAt: singleAgent.createdAt,
+              updatedAt: singleAgent.updatedAt,
+            }
+          : undefined)
+      const agents = agentTeamBinding.agentId
+        ? singleAgent
+          ? [singleAgent]
+          : []
+        : agentState.getTeamMembers(agentTeamBinding.teamId)
       if (!team || agents.length === 0) {
-        setContextLimitError(new Error('Select an agent team before sending.'))
+        setContextLimitError(new Error('Select an agent or agent team before sending.'))
         return
       }
 
@@ -1208,6 +1228,7 @@ function ThreadDetail() {
     },
     [
       addMessage,
+      agentTeamBinding.agentId,
       agentTeamBinding.teamId,
       setChatMessages,
       threadId,

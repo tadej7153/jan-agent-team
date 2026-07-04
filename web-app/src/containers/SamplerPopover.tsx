@@ -35,6 +35,7 @@ import { useModelProvider } from '@/hooks/useModelProvider'
 import { paramsSettings, type ParamDef } from '@/lib/predefinedParams'
 import { isPredefinedRemoteProvider } from '@/lib/providerCaps'
 import { cn } from '@/lib/utils'
+import { ChatActorSelection } from '@/lib/chat-actors'
 
 interface SamplerPopoverProps {
   /** Provider ID of the currently-selected model, if any. Used to scope the
@@ -48,8 +49,8 @@ interface SamplerPopoverProps {
   assistantSwitcher?: {
     assistants: Assistant[]
     currentThread: Thread | undefined
-    selectedAssistantId: string | undefined
-    setSelectedAssistantId: (id: string) => void
+    selectedActor: ChatActorSelection
+    onSelectActor: (actor: ChatActorSelection) => void
     updateCurrentThreadAssistant: (assistant: Assistant) => void
   }
 }
@@ -83,9 +84,11 @@ export function SamplerPopover({
   const isThreadAssistant =
     !!threadAssistant && threadAssistant.id !== 'model-only'
   const selectedAssistant = assistantSwitcher
-    ? assistantSwitcher.assistants.find(
-        (a) => a.id === assistantSwitcher.selectedAssistantId
-      )
+    ? assistantSwitcher.selectedActor.type === 'assistant'
+      ? assistantSwitcher.assistants.find(
+          (a) => a.id === assistantSwitcher.selectedActor.id
+        )
+      : undefined
     : currentAssistant
   const activeAssistant: Assistant | undefined = inThread
     ? isThreadAssistant
@@ -296,12 +299,8 @@ function AssistantHeader({
         className="max-h-64 overflow-y-auto"
       >
         <AssistantsMenu
-          selectedAssistant={assistantSwitcher.selectedAssistantId}
-          setSelectedAssistant={assistantSwitcher.setSelectedAssistantId}
-          currentThread={assistantSwitcher.currentThread}
-          updateCurrentThreadAssistant={
-            assistantSwitcher.updateCurrentThreadAssistant
-          }
+          selectedActor={assistantSwitcher.selectedActor}
+          onSelectActor={assistantSwitcher.onSelectActor}
           assistants={assistantSwitcher.assistants}
         />
       </DropdownMenuContent>

@@ -4,13 +4,12 @@ import { useMemo, useState } from 'react'
 import { useThreadManagement } from '@/hooks/useThreadManagement'
 import { useThreads } from '@/hooks/useThreads'
 import { useAssistant } from '@/hooks/useAssistant'
+import { useAgentTeams } from '@/hooks/useAgentTeams'
 import { useTranslation } from '@/i18n/react-i18next-compat'
 
 import ChatInput from '@/containers/ChatInput'
 import HeaderPage from '@/containers/HeaderPage'
 import ThreadList from '@/containers/ThreadList'
-import { AvatarEmoji } from '@/containers/AvatarEmoji'
-
 import { FolderPenIcon, MessageCircle, MoreHorizontal, PencilIcon, Trash2 } from 'lucide-react'
 import ProjectFiles from '@/containers/ProjectFiles'
 import DropdownModelProvider from '@/containers/DropdownModelProvider'
@@ -26,6 +25,11 @@ import AddProjectDialog from '@/containers/dialogs/AddProjectDialog'
 import { DeleteProjectDialog } from '@/containers/dialogs/DeleteProjectDialog'
 import { DeleteAllThreadsInProjectDialog } from '@/containers/dialogs/DeleteAllThreadsInProjectDialog'
 import { SidebarMenu } from '@/components/ui/sidebar'
+import {
+  ChatActorSelection,
+  getChatActorLabel,
+  normalizeChatActor,
+} from '@/lib/chat-actors'
 
 export const Route = createFileRoute('/project/$projectId')({
   component: ProjectPageContent,
@@ -38,6 +42,8 @@ function ProjectPageContent() {
   const threads = useThreads((state) => state.threads)
   const deleteAllThreadsByProject = useThreads((state) => state.deleteAllThreadsByProject)
   const { assistants } = useAssistant()
+  const agents = useAgentTeams((state) => state.agents)
+  const teams = useAgentTeams((state) => state.teams)
 
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -46,11 +52,21 @@ function ProjectPageContent() {
   // Find the project
   const project = getFolderById(projectId)
 
-  // Find the assigned assistant
-  const projectAssistant = useMemo(() => {
-    if (!project?.assistantId) return null
-    return assistants.find((a) => a.id === project.assistantId) || null
-  }, [project?.assistantId, assistants])
+  const projectActor = useMemo(
+    () => normalizeChatActor(project?.chatActor, project?.assistantId),
+    [project?.assistantId, project?.chatActor]
+  )
+  const projectActorLabel = useMemo(
+    () =>
+      getChatActorLabel(
+        projectActor,
+        assistants,
+        agents,
+        teams,
+        t('projects.noAssistantAssigned')
+      ),
+    [agents, assistants, projectActor, t, teams]
+  )
 
   // Get threads for this project
   const projectThreads = useMemo(() => {
@@ -59,9 +75,9 @@ function ProjectPageContent() {
       .sort((a, b) => (b.updated || 0) - (a.updated || 0))
   }, [threads, projectId])
 
-  const handleSaveEdit = async (name: string, assistantId?: string) => {
+  const handleSaveEdit = async (name: string, assistantId?: string, chatActor?: ChatActorSelection) => {
     if (project) {
-      await updateFolder(project.id, name, assistantId)
+      await updateFolder(project.id, name, assistantId, chatActor)
       setEditDialogOpen(false)
     }
   }
@@ -185,16 +201,9 @@ function ProjectPageContent() {
             <div className="flex items-center justify-between p-4 border-b border-border">
               <div className="flex flex-col gap-1">
                 <h3 className="text-sm font-medium">{t('projects.addProjectDialog.assistant')}</h3>
-                {projectAssistant ? (
+                {projectActor.type !== 'none' ? (
                   <div className="flex items-center gap-1.5 mt-1">
-                    {projectAssistant.avatar && (
-                      <AvatarEmoji
-                        avatar={projectAssistant.avatar}
-                        imageClassName="w-4 h-4 object-contain"
-                        textClassName="text-sm"
-                      />
-                    )}
-                    <span className="text-sm text-muted-foreground">{projectAssistant.name}</span>
+                    <span className="text-sm text-muted-foreground">{projectActorLabel}</span>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">

@@ -5,6 +5,7 @@
 import { ulid } from 'ulidx'
 import type { ProjectsService, ThreadFolder } from './types'
 import { localStorageKey } from '@/constants/localStorage'
+import type { ChatActorSelection } from '@/lib/chat-actors'
 
 export class DefaultProjectsService implements ProjectsService {
   private storageKey = localStorageKey.threadManagement
@@ -37,12 +38,17 @@ export class DefaultProjectsService implements ProjectsService {
     return this.loadFromStorage()
   }
 
-  async addProject(name: string, assistantId?: string): Promise<ThreadFolder> {
+  async addProject(
+    name: string,
+    assistantId?: string,
+    chatActor?: ChatActorSelection
+  ): Promise<ThreadFolder> {
     const newProject: ThreadFolder = {
       id: ulid(),
       name,
       updated_at: Date.now(),
       assistantId,
+      chatActor,
     }
 
     const projects = this.loadFromStorage()
@@ -52,11 +58,16 @@ export class DefaultProjectsService implements ProjectsService {
     return newProject
   }
 
-  async updateProject(id: string, name: string, assistantId?: string): Promise<void> {
+  async updateProject(
+    id: string,
+    name: string,
+    assistantId?: string,
+    chatActor?: ChatActorSelection
+  ): Promise<void> {
     const projects = this.loadFromStorage()
     const updatedProjects = projects.map((project) =>
       project.id === id
-        ? { ...project, name, updated_at: Date.now(), assistantId }
+        ? { ...project, name, updated_at: Date.now(), assistantId, chatActor }
         : project
     )
     this.saveToStorage(updatedProjects)

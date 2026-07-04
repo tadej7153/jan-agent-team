@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { AssistantSwitcher } from '../AssistantSwitcher'
 import { useAssistantSwitcher } from '@/hooks/useAssistantSwitcher'
+import { useAgentTeams } from '@/hooks/useAgentTeams'
+import type { ChatActorSelection } from '@/lib/chat-actors'
 
 vi.mock('@/i18n/react-i18next-compat', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
@@ -10,109 +12,89 @@ vi.mock('@/i18n/react-i18next-compat', () => ({
 const assistant = (id: string, name: string): Assistant =>
   ({ id, name, avatar: '😀' }) as unknown as Assistant
 
-const thread = (assistantId?: string): Thread =>
-  ({
-    id: 't1',
-    assistants: assistantId ? [{ id: assistantId } as Assistant] : [],
-  }) as unknown as Thread
-
 const cycle = () => useAssistantSwitcher.getState().cycleHandler?.()
 
 describe('AssistantSwitcher cycle logic', () => {
-  let setSelectedAssistantId: ReturnType<typeof vi.fn>
-  let updateCurrentThreadAssistant: ReturnType<typeof vi.fn>
+  let onSelectActor: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     cleanup()
-    setSelectedAssistantId = vi.fn()
-    updateCurrentThreadAssistant = vi.fn()
+    onSelectActor = vi.fn()
     useAssistantSwitcher.setState({ open: false, cycleHandler: null })
+    useAgentTeams.setState({ agents: [], teams: [], threadBindings: {} })
   })
 
   const renderSwitcher = (overrides: Partial<{
     assistants: Assistant[]
-    currentThread: Thread | undefined
-    selectedAssistantId: string | undefined
+    selectedActor: ChatActorSelection
   }> = {}) =>
     render(
       <AssistantSwitcher
         assistants={overrides.assistants ?? [assistant('a1', 'Alice'), assistant('a2', 'Bob')]}
-        currentThread={'currentThread' in overrides ? overrides.currentThread : undefined}
-        selectedAssistantId={overrides.selectedAssistantId}
-        setSelectedAssistantId={setSelectedAssistantId}
-        updateCurrentThreadAssistant={updateCurrentThreadAssistant}
+        selectedActor={overrides.selectedActor ?? { type: 'none' }}
+        onSelectActor={onSelectActor}
       />
     )
 
-  it('renders nothing with a single assistant and never registers a usable cycle', () => {
+  it('renders nothing with a single actor and never registers a usable cycle', () => {
     const { container } = renderSwitcher({ assistants: [assistant('a1', 'Alice')] })
     expect(container.firstChild).toBeNull()
     cycle()
-    expect(setSelectedAssistantId).not.toHaveBeenCalled()
-    expect(updateCurrentThreadAssistant).not.toHaveBeenCalled()
+    expect(onSelectActor).not.toHaveBeenCalled()
   })
 
-  it('advances to the next assistant off-thread', () => {
-    renderSwitcher({ selectedAssistantId: 'a1' })
+  it('advances to the next assistant', () => {
+    renderSwitcher({ selectedActor: { type: 'assistant', id: 'a1' } })
     cycle()
-    expect(setSelectedAssistantId).toHaveBeenCalledWith('a2')
+    expect(onSelectActor).toHaveBeenCalledWith({ type: 'assistant', id: 'a2' })
   })
 
-  it('wraps around from the last assistant to the first off-thread', () => {
-    renderSwitcher({ selectedAssistantId: 'a2' })
+  it('wraps around from the last assistant to the first', () => {
+    renderSwitcher({ selectedActor: { type: 'assistant', id: 'a2' } })
     cycle()
-    expect(setSelectedAssistantId).toHaveBeenCalledWith('a1')
+    expect(onSelectActor).toHaveBeenCalledWith({ type: 'assistant', id: 'a1' })
   })
 
-  it('treats an unknown selected id as index -1 and selects the first', () => {
-    renderSwitcher({ selectedAssistantId: 'missing' })
+  it('treats an unknown selected actor as index -1 and selects the first', () => {
+    renderSwitcher({ selectedActor: { type: 'assistant', id: 'missing' } })
     cycle()
-    // findIndex => -1, (-1 + 1) % len === 0
-    expect(setSelectedAssistantId).toHaveBeenCalledWith('a1')
+    expect(onSelectActor).toHaveBeenCalledWith({ type: 'assistant', id: 'a1' })
   })
 
-  it('cycles the thread assistant via updateCurrentThreadAssistant inside a thread', () => {
-    renderSwitcher({ currentThread: thread('a1') })
+  it('cycles from assistant to agent when agents are available', () => {
+    useAgentTeams.setState({
+      agents: [
+        {
+          id: 'agent-a',
+          name: 'Agent A',
+          avatar: '🤖',
+          description: '',
+          systemPrompt: '',
+          toolPermission: 'none',
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+      teams: [],
+      threadBindings: {},
+    })
+    renderSwitcher({
+      assistants: [assistant('a1', 'Alice')],
+      selectedActor: { type: 'assistant', id: 'a1' },
+    })
     cycle()
-    expect(updateCurrentThreadAssistant).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'a2' })
-    )
-    expect(setSelectedAssistantId).not.toHaveBeenCalled()
-  })
-
-  it('wraps around the thread assistant', () => {
-    renderSwitcher({ currentThread: thread('a2') })
-    cycle()
-    expect(updateCurrentThreadAssistant).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'a1' })
-    )
-  })
-
-  it('starts from the first assistant when the thread has only a model-only assistant', () => {
-    renderSwitcher({ currentThread: thread('model-only') })
-    cycle()
-    expect(updateCurrentThreadAssistant).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'a1' })
-    )
-  })
-
-  it('starts from the first assistant when the thread has no assistant', () => {
-    renderSwitcher({ currentThread: thread(undefined) })
-    cycle()
-    expect(updateCurrentThreadAssistant).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'a1' })
-    )
+    expect(onSelectActor).toHaveBeenCalledWith({ type: 'agent', id: 'agent-a' })
   })
 
   it('unregisters the cycle handler on unmount', () => {
-    const { unmount } = renderSwitcher({ selectedAssistantId: 'a1' })
+    const { unmount } = renderSwitcher({ selectedActor: { type: 'assistant', id: 'a1' } })
     expect(useAssistantSwitcher.getState().cycleHandler).not.toBeNull()
     unmount()
     expect(useAssistantSwitcher.getState().cycleHandler).toBeNull()
   })
 
-  it('falls back to the i18n key when no assistant is active off-thread', () => {
-    renderSwitcher({ selectedAssistantId: undefined })
+  it('falls back to the i18n key when no actor is active', () => {
+    renderSwitcher({ selectedActor: { type: 'none' } })
     expect(screen.getByText('common:noAssistant')).toBeInTheDocument()
   })
 })

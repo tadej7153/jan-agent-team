@@ -1,3 +1,5 @@
+import type { ChatActorSelection } from '@/lib/chat-actors'
+
 /**
  * Projects Service Types
  * Types for project/folder management operations
@@ -8,6 +10,7 @@ export interface ThreadFolder {
   name: string
   updated_at: number
   assistantId?: string
+  chatActor?: ChatActorSelection
 }
 
 export interface ProjectsService {
@@ -19,12 +22,12 @@ export interface ProjectsService {
   /**
    * Add a new project/folder
    */
-  addProject(name: string, assistantId?: string): Promise<ThreadFolder>
+  addProject(name: string, assistantId?: string, chatActor?: ChatActorSelection): Promise<ThreadFolder>
 
   /**
    * Update a project/folder
    */
-  updateProject(id: string, name: string, assistantId?: string): Promise<void>
+  updateProject(id: string, name: string, assistantId?: string, chatActor?: ChatActorSelection): Promise<void>
 
   /**
    * Delete a project/folder

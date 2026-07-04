@@ -1,5 +1,6 @@
 import { LucideIcon } from 'lucide-react'
 import { route } from '@/constants/routes'
+import type { ChatActorSelection } from '@/lib/chat-actors'
 
 import {
   SidebarMenu,
@@ -188,8 +189,8 @@ export function NavMain() {
     }
   ).filter((item) => item.title !== 'common:newAgentChat')
 
-  const handleCreateProject = async (name: string, assistantId?: string) => {
-    const newProject = await addFolder(name, assistantId)
+  const handleCreateProject = async (name: string, assistantId?: string, chatActor?: ChatActorSelection) => {
+    const newProject = await addFolder(name, assistantId, chatActor)
     setProjectDialogOpen(false)
     navigate({
       to: '/project/$projectId',

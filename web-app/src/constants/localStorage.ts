@@ -20,6 +20,7 @@ export const localStorageKey = {
   lastUsedModel: 'last-used-model',
   lastUsedAssistant: 'last-used-assistant',
   defaultAssistantId: 'default-assistant-id',
+  defaultChatActor: 'default-chat-actor',
   favoriteModels: 'favorite-models',
   setupCompleted: 'setup-completed',
   threadManagement: 'thread-management',

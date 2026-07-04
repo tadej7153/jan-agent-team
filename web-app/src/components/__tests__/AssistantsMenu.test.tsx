@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AssistantsMenu } from '../AssistantsMenu'
@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
+import { useAgentTeams } from '@/hooks/useAgentTeams'
 
 function AssitantMenuContainer({ children }) {
   return (
@@ -21,101 +22,110 @@ function AssitantMenuContainer({ children }) {
 }
 
 describe('AssistantsMenu', () => {
-  const mockSetSelectedAssistant = vi.fn()
-  const mockUpdateCurrentThreadAssistant = vi.fn()
+  const mockSelectActor = vi.fn()
   const assistants = [
     { id: 'a1', name: 'Alice', avatar: '😀' },
     { id: 'a2', name: 'Bob', avatar: '😎' },
   ]
 
-  it('renders None and assistants', async () => {
+  beforeEach(() => {
+    mockSelectActor.mockReset()
+    useAgentTeams.setState({
+      agents: [
+        {
+          id: 'agent-a',
+          name: 'Agent A',
+          avatar: '🤖',
+          description: '',
+          systemPrompt: '',
+          toolPermission: 'none',
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+      teams: [
+        {
+          id: 'team-a',
+          name: 'Team A',
+          description: '',
+          memberIds: ['agent-a'],
+          speakerOrder: 'round_robin',
+          maxRounds: 1,
+          allowMentions: true,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+      threadBindings: {},
+    })
+  })
+
+  it('renders None, assistants, agents and teams', async () => {
     render(
       <AssitantMenuContainer>
         <AssistantsMenu
-          selectedAssistant={undefined}
-          setSelectedAssistant={mockSetSelectedAssistant}
-          currentThread={undefined}
-          updateCurrentThreadAssistant={mockUpdateCurrentThreadAssistant}
+          selectedActor={{ type: 'none' }}
+          onSelectActor={mockSelectActor}
           assistants={assistants}
         />
       </AssitantMenuContainer>
     )
-    const trigger = screen.getByRole('button', { name: 'Open' })
-    await userEvent.click(trigger)
+    await userEvent.click(screen.getByRole('button', { name: 'Open' }))
     await waitFor(() => {
-      expect(screen.getByText('None')).toBeInTheDocument()
+      expect(screen.getByText('无')).toBeInTheDocument()
     })
     expect(screen.getByText('Alice')).toBeInTheDocument()
-    expect(screen.getByText('Bob')).toBeInTheDocument()
+    expect(screen.getByText('Agent A')).toBeInTheDocument()
+    expect(screen.getByText('Team A')).toBeInTheDocument()
   })
 
-  it('calls setSelectedAssistant when None is clicked', async () => {
+  it('selects none', async () => {
     render(
       <AssitantMenuContainer>
         <AssistantsMenu
-          selectedAssistant={undefined}
-          setSelectedAssistant={mockSetSelectedAssistant}
-          currentThread={undefined}
-          updateCurrentThreadAssistant={mockUpdateCurrentThreadAssistant}
+          selectedActor={{ type: 'assistant', id: 'a1' }}
+          onSelectActor={mockSelectActor}
           assistants={assistants}
         />
       </AssitantMenuContainer>
     )
-    const openButton = screen.getByRole('button', { name: 'Open' })
-    await userEvent.click(openButton)
-    await waitFor(() => {
-      expect(screen.getByText('None')).toBeInTheDocument()
-    })
-    // Find the menuitem containing 'None' (text may be nested)
-    const noneText = screen.getByText('None')
-    const noneMenuItem = noneText.closest('[role="menuitem"]')
+    await userEvent.click(screen.getByRole('button', { name: 'Open' }))
+    const noneMenuItem = screen.getByText('无').closest('[role="menuitem"]')
     expect(noneMenuItem).not.toBeNull()
     await userEvent.click(noneMenuItem!)
-    expect(mockSetSelectedAssistant).toHaveBeenCalledWith('')
+    expect(mockSelectActor).toHaveBeenCalledWith({ type: 'none' })
   })
 
-  it('calls setSelectedAssistant when assistant is clicked', async () => {
+  it('selects an assistant', async () => {
     render(
       <AssitantMenuContainer>
         <AssistantsMenu
-          selectedAssistant={undefined}
-          setSelectedAssistant={mockSetSelectedAssistant}
-          currentThread={undefined}
-          updateCurrentThreadAssistant={mockUpdateCurrentThreadAssistant}
+          selectedActor={{ type: 'none' }}
+          onSelectActor={mockSelectActor}
           assistants={assistants}
         />
       </AssitantMenuContainer>
     )
-    const openButton = screen.getByRole('button', { name: 'Open' })
-    await userEvent.click(openButton)
-    await waitFor(() => {
-      expect(screen.getByText('None')).toBeInTheDocument()
-    })
-    // Find the menuitem containing 'Alice' (text may be nested)
-    const aliceText = screen.getByText('Alice')
-    const aliceMenuItem = aliceText.closest('[role="menuitem"]')
+    await userEvent.click(screen.getByRole('button', { name: 'Open' }))
+    const aliceMenuItem = screen.getByText('Alice').closest('[role="menuitem"]')
     expect(aliceMenuItem).not.toBeNull()
     await userEvent.click(aliceMenuItem!)
-    expect(mockSetSelectedAssistant).toHaveBeenCalledWith('a1')
+    expect(mockSelectActor).toHaveBeenCalledWith({ type: 'assistant', id: 'a1' })
   })
 
   it('shows disabled when no assistants', async () => {
     render(
       <AssitantMenuContainer>
         <AssistantsMenu
-          selectedAssistant={undefined}
-          setSelectedAssistant={mockSetSelectedAssistant}
-          currentThread={undefined}
-          updateCurrentThreadAssistant={mockUpdateCurrentThreadAssistant}
+          selectedActor={{ type: 'none' }}
+          onSelectActor={mockSelectActor}
           assistants={[]}
         />
       </AssitantMenuContainer>
     )
-    const trigger = screen.getByRole('button', { name: 'Open' })
-    await userEvent.click(trigger)
+    await userEvent.click(screen.getByRole('button', { name: 'Open' }))
     await waitFor(() => {
-      expect(screen.getByText('None')).toBeInTheDocument()
+      expect(screen.getByText('暂无助手')).toBeInTheDocument()
     })
-    expect(screen.getByText('No assistants available')).toBeInTheDocument()
   })
 })

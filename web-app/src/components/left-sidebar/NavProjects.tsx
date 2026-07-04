@@ -28,6 +28,7 @@ import { Link, useNavigate } from "@tanstack/react-router"
 
 import { useState } from "react"
 import { useTranslation } from '@/i18n/react-i18next-compat'
+import type { ChatActorSelection } from '@/lib/chat-actors'
 import type { ThreadFolder } from "@/services/projects/types"
 import AddProjectDialog from "@/containers/dialogs/AddProjectDialog"
 import { DeleteProjectDialog } from "@/containers/dialogs/DeleteProjectDialog"
@@ -109,9 +110,9 @@ export function NavProjects() {
     setDeleteDialogOpen(true)
   }
 
-  const handleSaveEdit = async (name: string, assistantId?: string) => {
+  const handleSaveEdit = async (name: string, assistantId?: string, chatActor?: ChatActorSelection) => {
     if (selectedProject) {
-      await updateFolder(selectedProject.id, name, assistantId)
+      await updateFolder(selectedProject.id, name, assistantId, chatActor)
       setEditDialogOpen(false)
       setSelectedProject(null)
     }

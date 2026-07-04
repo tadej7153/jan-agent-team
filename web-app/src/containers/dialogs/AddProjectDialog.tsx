@@ -9,19 +9,23 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useThreadManagement } from '@/hooks/useThreadManagement'
 import { useAssistant } from '@/hooks/useAssistant'
-import { AvatarEmoji } from '@/containers/AvatarEmoji'
 import { toast } from 'sonner'
 import { useTranslation } from '@/i18n/react-i18next-compat'
 import { ChevronDown, Plus } from 'lucide-react'
 import AddEditAssistant from './AddEditAssistant'
+import { AssistantsMenu } from '@/components/AssistantsMenu'
+import {
+  ChatActorSelection,
+  getChatActorLabel,
+  normalizeChatActor,
+} from '@/lib/chat-actors'
+import { useAgentTeams } from '@/hooks/useAgentTeams'
 
 interface AddProjectDialogProps {
   open: boolean
@@ -32,8 +36,9 @@ interface AddProjectDialogProps {
     name: string
     updated_at: number
     assistantId?: string
+    chatActor?: ChatActorSelection
   }
-  onSave: (name: string, assistantId?: string) => void
+  onSave: (name: string, assistantId?: string, chatActor?: ChatActorSelection) => void
 }
 
 export default function AddProjectDialog({
@@ -45,17 +50,27 @@ export default function AddProjectDialog({
 }: AddProjectDialogProps) {
   const { t } = useTranslation()
   const [name, setName] = useState(initialData?.name || '')
-  const [selectedAssistantId, setSelectedAssistantId] = useState<string | undefined>(initialData?.assistantId)
+  const [selectedActor, setSelectedActor] = useState<ChatActorSelection>(
+    normalizeChatActor(initialData?.chatActor, initialData?.assistantId)
+  )
   const { folders } = useThreadManagement()
   const { assistants, addAssistant } = useAssistant()
+  const agents = useAgentTeams((state) => state.agents)
+  const teams = useAgentTeams((state) => state.teams)
   const [addAssistantDialogOpen, setAddAssistantDialogOpen] = useState(false)
 
-  const selectedAssistant = assistants.find((a) => a.id === selectedAssistantId)
+  const selectedActorLabel = getChatActorLabel(
+    selectedActor,
+    assistants,
+    agents,
+    teams,
+    t('projects.addProjectDialog.selectAssistant')
+  )
 
   useEffect(() => {
     if (open) {
       setName(initialData?.name || '')
-      setSelectedAssistantId(initialData?.assistantId)
+      setSelectedActor(normalizeChatActor(initialData?.chatActor, initialData?.assistantId))
     }
   }, [open, initialData])
 
@@ -76,7 +91,11 @@ export default function AddProjectDialog({
       return
     }
 
-    onSave(trimmedName, selectedAssistantId)
+    onSave(
+      trimmedName,
+      selectedActor.type === 'assistant' ? selectedActor.id : undefined,
+      selectedActor
+    )
 
     // Show success message
     if (editingKey) {
@@ -85,18 +104,20 @@ export default function AddProjectDialog({
       toast.success(t('projects.addProjectDialog.createSuccess', { projectName: trimmedName }))
     }
     setName('')
-    setSelectedAssistantId(undefined)
+    setSelectedActor({ type: 'none' })
   }
 
   const handleCancel = () => {
     onOpenChange(false)
     setName('')
-    setSelectedAssistantId(undefined)
+    setSelectedActor({ type: 'none' })
   }
 
   // Check if the button should be disabled
   const hasChanged = editingKey
-    ? name.trim() !== initialData?.name || selectedAssistantId !== initialData?.assistantId
+    ? name.trim() !== initialData?.name ||
+      JSON.stringify(selectedActor) !==
+        JSON.stringify(normalizeChatActor(initialData?.chatActor, initialData?.assistantId))
     : true
   const isButtonDisabled = !name.trim() || (editingKey && !hasChanged)
 
@@ -134,59 +155,26 @@ export default function AddProjectDialog({
                   variant="outline"
                   className="w-full justify-between rounded-md"
                 >
-                  {selectedAssistant ? (
-                    <div className="flex items-center gap-2">
-                      {selectedAssistant.avatar && (
-                        <AvatarEmoji
-                          avatar={selectedAssistant.avatar}
-                          imageClassName="w-4 h-4 object-contain"
-                          textClassName="text-sm"
-                        />
-                      )}
-                      <span>{selectedAssistant.name}</span>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">
-                      {t('projects.addProjectDialog.selectAssistant')}
-                    </span>
-                  )}
+                  <span className="truncate">{selectedActorLabel}</span>
                   <ChevronDown className="size-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-(--radix-dropdown-menu-trigger-width)">
-                <DropdownMenuItem
-                  onSelect={() => setSelectedAssistantId(undefined)}
-                >
-                  <span className="text-muted-foreground">
-                    {t('projects.addProjectDialog.noAssistant')}
-                  </span>
-                </DropdownMenuItem>
-                {assistants.map((assistant) => (
-                  <DropdownMenuItem
-                    key={assistant.id}
-                    onSelect={() => setSelectedAssistantId(assistant.id)}
-                  >
-                    <div className="flex items-center gap-2">
-                      {assistant.avatar && (
-                        <AvatarEmoji
-                          avatar={assistant.avatar}
-                          imageClassName="w-4 h-4 object-contain"
-                          textClassName="text-sm"
-                        />
-                      )}
-                      <span>{assistant.name}</span>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={() => setAddAssistantDialogOpen(true)}
+                <AssistantsMenu
+                  selectedActor={selectedActor}
+                  onSelectActor={setSelectedActor}
+                  assistants={assistants}
+                />
+                <button
+                  type="button"
+                  className="relative flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent"
+                  onClick={() => setAddAssistantDialogOpen(true)}
                 >
                   <div className="flex items-center gap-2">
                     <Plus className="size-4" />
                     <span>{t('projects.addProjectDialog.addAssistant')}</span>
                   </div>
-                </DropdownMenuItem>
+                </button>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -208,7 +196,7 @@ export default function AddProjectDialog({
       editingKey={null}
       onSave={(assistant) => {
         addAssistant(assistant)
-        setSelectedAssistantId(assistant.id)
+        setSelectedActor({ type: 'assistant', id: assistant.id })
       }}
     />
   </>

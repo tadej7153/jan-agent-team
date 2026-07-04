@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { route } from '@/constants/routes'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { useAssistant } from '@/hooks/useAssistant'
 
@@ -17,11 +17,18 @@ import { Card, CardItem } from '@/containers/Card'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ChevronsUpDown } from 'lucide-react'
-import { DropdownMenuSeparator } from '@radix-ui/react-dropdown-menu'
+import { AssistantsMenu } from '@/components/AssistantsMenu'
+import {
+  ChatActorSelection,
+  getChatActorLabel,
+  getDefaultChatActor,
+  setDefaultChatActor,
+  normalizeChatActor,
+} from '@/lib/chat-actors'
+import { useAgentTeams } from '@/hooks/useAgentTeams'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const Route = createFileRoute(route.settings.assistant as any)({
@@ -38,6 +45,8 @@ function AssistantContent() {
     defaultAssistantId,
     setDefaultAssistant
   } = useAssistant()
+  const agents = useAgentTeams((state) => state.agents)
+  const teams = useAgentTeams((state) => state.teams)
   const [open, setOpen] = useState(false)
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -67,7 +76,24 @@ function AssistantContent() {
   }
 
   const sortedAssistants = assistants.slice().sort((a, b) => a.created_at - b.created_at)
-  const defaultAssistant = sortedAssistants.find((a) => a.id === defaultAssistantId)
+  const [defaultActor, setDefaultActor] = useState<ChatActorSelection>(
+    () => getDefaultChatActor() ?? normalizeChatActor(undefined, defaultAssistantId)
+  )
+  useEffect(() => {
+    setDefaultActor(getDefaultChatActor() ?? normalizeChatActor(undefined, defaultAssistantId))
+  }, [defaultAssistantId])
+  const defaultActorLabel = getChatActorLabel(
+    defaultActor,
+    sortedAssistants,
+    agents,
+    teams,
+    t('assistants:lastUsed')
+  )
+  const handleDefaultActorSelect = (actor: ChatActorSelection) => {
+    setDefaultActor(actor)
+    setDefaultChatActor(actor)
+    setDefaultAssistant(actor.type === 'assistant' ? actor.id : '')
+  }
 
   return (
     <div className="flex flex-col h-svh w-full">
@@ -97,42 +123,24 @@ function AssistantContent() {
             {/* Default Assistant */}
             <Card>
               <CardItem
-                title={t('assistants:defaultAssistantSection')}
-                description={t('assistants:defaultAssistantDesc')}
+                title="默认对话角色"
+                description="新对话默认使用的 Assistant、Agent 或 Agent Team。"
                 actions={
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" className="justify-between">
                         <span className={cn('truncate')}>
-                          {defaultAssistant?.name ?? t('assistants:lastUsed')}
+                          {defaultActorLabel}
                         </span>
                         <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground ml-2" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-40 max-h-80">
-                      <DropdownMenuItem
-                        key="none"
-                        className={cn(
-                          'cursor-pointer my-0.5',
-                          !defaultAssistantId && 'bg-secondary-foreground/8'
-                        )}
-                        onClick={() => setDefaultAssistant('')}
-                      >
-                        {t('assistants:lastUsed')}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      {sortedAssistants.map((a) => (
-                        <DropdownMenuItem
-                          key={a.id}
-                          className={cn(
-                            'cursor-pointer my-0.5',
-                            defaultAssistantId === a.id && 'bg-secondary-foreground/8'
-                          )}
-                          onClick={() => setDefaultAssistant(a.id)}
-                        >
-                          {a.name}
-                        </DropdownMenuItem>
-                      ))}
+                    <DropdownMenuContent align="end" className="w-56 max-h-80">
+                      <AssistantsMenu
+                        selectedActor={defaultActor}
+                        onSelectActor={handleDefaultActorSelect}
+                        assistants={sortedAssistants}
+                      />
                     </DropdownMenuContent>
                   </DropdownMenu>
                 }
@@ -157,7 +165,7 @@ function AssistantContent() {
                       <span className="text-sm font-studio font-medium truncate">
                         {assistant.name}
                       </span>
-                      {defaultAssistantId === assistant.id && (
+                      {defaultActor.type === 'assistant' && defaultActor.id === assistant.id && (
                         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full text-muted-foreground bg-foreground/10 leading-none shrink-0">
                           {t('assistants:isDefault')}
                         </span>

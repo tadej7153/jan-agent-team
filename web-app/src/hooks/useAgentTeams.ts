@@ -41,6 +41,7 @@ export type AgentTeam = {
 export type ThreadAgentTeamBinding = {
   enabled: boolean
   teamId?: string
+  agentId?: string
 }
 
 export const disabledThreadAgentTeamBinding: ThreadAgentTeamBinding = {
@@ -164,6 +165,12 @@ export const useAgentTeams = create<AgentTeamsState>()(
               team.summarizerAgentId === id ? undefined : team.summarizerAgentId,
             updatedAt: Date.now(),
           })),
+          threadBindings: Object.fromEntries(
+            Object.entries(state.threadBindings).map(([threadId, binding]) => [
+              threadId,
+              binding.agentId === id ? { enabled: false } : binding,
+            ])
+          ),
         }))
       },
       createTeam: (team) => {

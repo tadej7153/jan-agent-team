@@ -30,7 +30,6 @@ import {
   IconLoader2,
   IconWorld,
   IconBrandChrome,
-  IconUsersGroup,
 } from '@tabler/icons-react'
 import { generateId } from 'ai'
 import { useMessageQueue } from '@/stores/message-queue-store'
@@ -93,6 +92,13 @@ import {
   disabledThreadAgentTeamBinding,
   useAgentTeams,
 } from '@/hooks/useAgentTeams'
+import {
+  assistantActor,
+  ChatActorSelection,
+  getDefaultChatActor,
+  noneChatActor,
+  normalizeChatActor,
+} from '@/lib/chat-actors'
 
 type ChatInputProps = {
   className?: string
@@ -169,7 +175,6 @@ const ChatInput = memo(function ChatInput({
   // Agent mode
   // Use TEMPORARY_CHAT_ID as fallback key on the home screen (same pattern as attachments)
   const agentModeKey = currentThreadId ?? TEMPORARY_CHAT_ID
-  const agentTeams = useAgentTeams((state) => state.teams)
   const threadAgentBinding = useAgentTeams(
     (state) => state.threadBindings[agentModeKey] ?? disabledThreadAgentTeamBinding
   )
@@ -182,19 +187,6 @@ const ChatInput = memo(function ChatInput({
   const handleAgentToggle = useCallback(() => {
     toggleAgentMode(agentModeKey)
   }, [agentModeKey, toggleAgentMode])
-
-  const selectedTeam = agentTeams.find((team) => team.id === threadAgentBinding.teamId)
-
-  const handleSelectTeam = useCallback(
-    (teamId?: string) => {
-      setThreadAgentBinding(agentModeKey, {
-        enabled: Boolean(teamId),
-        teamId,
-      })
-      useAgentMode.getState().setAgentMode(agentModeKey, Boolean(teamId))
-    },
-    [agentModeKey, setThreadAgentBinding]
-  )
 
   // Get current thread messages for token counting
   const threadMessages = useMessages(
@@ -225,14 +217,63 @@ const ChatInput = memo(function ChatInput({
 
   // Reconcile video capability from /props once the model is loaded.
   useReconcileVideoCapability(selectedModel?.id, selectedProvider, isModelActive)
-  const [selectedAssistantId, setSelectedAssistantId] = useState<
-    string | undefined
-  >(loading ? undefined : currentAssistant?.id || '')
+  const [selectedActor, setSelectedActor] = useState<ChatActorSelection>(() => {
+    if (loading) return noneChatActor
+    return getDefaultChatActor() ?? assistantActor(currentAssistant?.id)
+  })
 
   useEffect(() => {
-    setSelectedAssistantId(currentAssistant?.id || '')
+    setSelectedActor(getDefaultChatActor() ?? assistantActor(currentAssistant?.id))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading])
+
+  const activeActor: ChatActorSelection = currentThread
+    ? threadAgentBinding.enabled && threadAgentBinding.agentId
+      ? { type: 'agent', id: threadAgentBinding.agentId }
+      : threadAgentBinding.enabled && threadAgentBinding.teamId
+        ? { type: 'team', id: threadAgentBinding.teamId }
+        : currentThread.assistants?.[0]?.id === 'model-only'
+          ? noneChatActor
+          : assistantActor(currentThread.assistants?.[0]?.id)
+    : selectedActor
+
+  const applyAgentBinding = useCallback(
+    (key: string, actor: ChatActorSelection) => {
+      const enabled = actor.type === 'agent' || actor.type === 'team'
+      setThreadAgentBinding(key, {
+        enabled,
+        agentId: actor.type === 'agent' ? actor.id : undefined,
+        teamId: actor.type === 'team' ? actor.id : undefined,
+      })
+      useAgentMode.getState().setAgentMode(key, enabled)
+    },
+    [setThreadAgentBinding]
+  )
+
+  const handleSelectActor = useCallback(
+    (actor: ChatActorSelection) => {
+      setSelectedActor(actor)
+      if (currentThread) {
+        if (actor.type === 'assistant') {
+          const assistant = assistants.find((item) => item.id === actor.id)
+          updateCurrentThreadAssistant(assistant as unknown as Assistant)
+          applyAgentBinding(agentModeKey, noneChatActor)
+        } else {
+          updateCurrentThreadAssistant(undefined as unknown as Assistant)
+          applyAgentBinding(agentModeKey, actor)
+        }
+      } else {
+        applyAgentBinding(TEMPORARY_CHAT_ID, actor)
+      }
+    },
+    [
+      agentModeKey,
+      applyAgentBinding,
+      assistants,
+      currentThread,
+      updateCurrentThreadAssistant,
+    ]
+  )
 
   // Jan Browser Extension hook
   const {
@@ -433,8 +474,10 @@ const ChatInput = memo(function ChatInput({
           JSON.stringify(messagePayload)
         )
         sessionStorage.setItem('temp-chat-nav', 'true')
-        // Transfer agent mode from home screen to temporary thread
-        if (isAgentMode && agentModeKey !== TEMPORARY_CHAT_ID) {
+        // Transfer agent mode from home screen to temporary thread.
+        if (activeActor.type === 'agent' || activeActor.type === 'team') {
+          applyAgentBinding(TEMPORARY_CHAT_ID, activeActor)
+        } else if (isAgentMode && agentModeKey !== TEMPORARY_CHAT_ID) {
           useAgentMode.getState().setAgentMode(TEMPORARY_CHAT_ID, true)
           useAgentMode.getState().removeThread(agentModeKey)
           if (threadAgentBinding.enabled) {
@@ -453,7 +496,7 @@ const ChatInput = memo(function ChatInput({
         let projectMetadata:
           | { id: string; name: string; updated_at: number }
           | undefined
-        let projectAssistantId: string | undefined
+        let projectActor: ChatActorSelection | undefined
 
         if (projectId) {
           try {
@@ -466,18 +509,21 @@ const ChatInput = memo(function ChatInput({
                 name: project.name,
                 updated_at: project.updated_at,
               }
-              projectAssistantId = project.assistantId
+              projectActor = normalizeChatActor(
+                project.chatActor,
+                project.assistantId
+              )
             }
           } catch (e) {
             console.warn('Failed to fetch project metadata:', e)
           }
         }
 
-        // Only use assistant when chatting via project with an assigned assistant
-        // When no projectId, use the selected assistant from dropdown (if any)
-        const assistant = projectAssistantId
-          ? assistants.find((a) => a.id === projectAssistantId)
-          : assistants.find((a) => a.id === selectedAssistantId)
+        const actorToUse = projectActor ?? activeActor
+        const assistant =
+          actorToUse.type === 'assistant'
+            ? assistants.find((a) => a.id === actorToUse.id)
+            : undefined
 
         setCurrentAssistant(assistant)
 
@@ -491,8 +537,14 @@ const ChatInput = memo(function ChatInput({
           projectMetadata
         )
 
-        // Transfer agent mode from home screen to the new thread
-        if (isAgentMode) {
+        // Transfer agent mode from home screen or project default to the new thread.
+        if (actorToUse.type === 'agent' || actorToUse.type === 'team') {
+          applyAgentBinding(newThread.id, actorToUse)
+          if (agentModeKey !== newThread.id) {
+            useAgentTeams.getState().removeThreadBinding(agentModeKey)
+            useAgentMode.getState().removeThread(agentModeKey)
+          }
+        } else if (isAgentMode) {
           useAgentMode.getState().setAgentMode(newThread.id, true)
           useAgentMode.getState().removeThread(agentModeKey)
           if (threadAgentBinding.enabled) {
@@ -2062,69 +2114,17 @@ const ChatInput = memo(function ChatInput({
                 )} */}
                 <AssistantSwitcher
                   assistants={assistants}
-                  currentThread={currentThread}
-                  selectedAssistantId={selectedAssistantId}
-                  setSelectedAssistantId={setSelectedAssistantId}
-                  updateCurrentThreadAssistant={updateCurrentThreadAssistant}
+                  selectedActor={activeActor}
+                  onSelectActor={handleSelectActor}
                 />
-                {!projectId && agentTeams.length > 0 && (
-                  <DropdownMenu>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant={threadAgentBinding.enabled ? 'secondary' : 'ghost'}
-                            size="sm"
-                            className={cn(
-                              'h-8 rounded-full gap-1.5 px-2.5',
-                              threadAgentBinding.enabled && 'text-primary'
-                            )}
-                          >
-                            <IconUsersGroup
-                              size={17}
-                              className={cn(
-                                'text-muted-foreground',
-                                threadAgentBinding.enabled && 'text-primary'
-                              )}
-                            />
-                            <span className="max-w-32 truncate text-xs">
-                              {selectedTeam?.name ?? '团队'}
-                            </span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{selectedTeam ? 'Agent 团队已启用' : '选择 Agent 团队'}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    <DropdownMenuContent align="start" className="w-56">
-                      <DropdownMenuItem onClick={() => handleSelectTeam(undefined)}>
-                        关闭
-                      </DropdownMenuItem>
-                      {agentTeams.map((team) => (
-                        <DropdownMenuItem
-                          key={team.id}
-                          onClick={() => handleSelectTeam(team.id)}
-                        >
-                          <div className="min-w-0">
-                            <div className="truncate">{team.name}</div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {team.memberIds.length} 个 Agent · {team.speakerOrder}
-                            </div>
-                          </div>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
                 <SamplerPopover
                   providerId={selectedProvider}
                   modelId={selectedModel?.id}
                   assistantSwitcher={{
                     assistants,
                     currentThread,
-                    selectedAssistantId,
-                    setSelectedAssistantId,
+                    selectedActor: activeActor,
+                    onSelectActor: handleSelectActor,
                     updateCurrentThreadAssistant,
                   }}
                 />
