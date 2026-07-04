@@ -100,10 +100,10 @@ export function AgentTeamsLayout({
   return (
     <div className="flex flex-col h-svh w-full">
       <HeaderPage>
-        <div className={cn('flex items-center justify-between w-full mr-2 pr-3', !IS_MACOS && 'pr-30')}>
+        <div className={cn('flex items-center justify-between w-full mr-2 pr-3 relative z-50', !IS_MACOS && 'pr-30')}>
           <div className="flex items-center gap-3 min-w-0">
             <span className="font-medium text-base font-studio shrink-0">Agent 团队</span>
-            <div className="flex items-center rounded-full border bg-background p-0.5">
+            <div className="flex items-center rounded-full border bg-background p-0.5 relative z-50">
               <Link
                 to={route.settings.agent_team_agents}
                 className={cn(
@@ -124,7 +124,7 @@ export function AgentTeamsLayout({
               </Link>
             </div>
           </div>
-          <div className="flex items-center gap-2 relative z-20">
+          <div className="flex items-center gap-2 relative z-50">
             <Button size="sm" variant="outline" onClick={handleCreateAgent}>
               <IconCirclePlus size={16} />
               新建 Agent
