@@ -178,7 +178,7 @@ const SettingsMenu = () => {
       icon: IconPalette,
     },
     { title: 'common:assistants', route: route.settings.assistant, icon: IconFeather },
-    { title: 'Agent 团队', route: route.settings.agent_teams, icon: IconUsersGroup },
+    { title: 'Agent 团队', route: route.settings.agent_team_agents, icon: IconUsersGroup },
     {
       title: 'common:attachments',
       route: route.settings.attachments,

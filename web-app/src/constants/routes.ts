@@ -20,6 +20,8 @@ export const route = {
     hardware: '/settings/hardware',
     assistant: '/settings/assistant',
     agent_teams: '/settings/agent-teams',
+    agent_team_agents: '/settings/agent-teams/agents',
+    agent_team_teams: '/settings/agent-teams/teams',
     claude_code: '/settings/claude-code',
   },
   hub: {

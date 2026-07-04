@@ -32,6 +32,8 @@ import { Route as LocalApiServerLogsRouteImport } from './routes/local-api-serve
 import { Route as HubModelIdRouteImport } from './routes/hub/$modelId'
 import { Route as SettingsProvidersIndexRouteImport } from './routes/settings/providers/index'
 import { Route as SettingsProvidersProviderNameRouteImport } from './routes/settings/providers/$providerName'
+import { Route as SettingsAgentTeamsTeamsRouteImport } from './routes/settings/agent-teams/teams'
+import { Route as SettingsAgentTeamsAgentsRouteImport } from './routes/settings/agent-teams/agents'
 
 const SystemMonitorRoute = SystemMonitorRouteImport.update({
   id: '/system-monitor',
@@ -149,6 +151,17 @@ const SettingsProvidersProviderNameRoute =
     path: '/settings/providers/$providerName',
     getParentRoute: () => rootRouteImport,
   } as any)
+const SettingsAgentTeamsTeamsRoute = SettingsAgentTeamsTeamsRouteImport.update({
+  id: '/teams',
+  path: '/teams',
+  getParentRoute: () => SettingsAgentTeamsRoute,
+} as any)
+const SettingsAgentTeamsAgentsRoute =
+  SettingsAgentTeamsAgentsRouteImport.update({
+    id: '/agents',
+    path: '/agents',
+    getParentRoute: () => SettingsAgentTeamsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -157,7 +170,7 @@ export interface FileRoutesByFullPath {
   '/hub/$modelId': typeof HubModelIdRoute
   '/local-api-server/logs': typeof LocalApiServerLogsRoute
   '/project/$projectId': typeof ProjectProjectIdRoute
-  '/settings/agent-teams': typeof SettingsAgentTeamsRoute
+  '/settings/agent-teams': typeof SettingsAgentTeamsRouteWithChildren
   '/settings/assistant': typeof SettingsAssistantRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/claude-code': typeof SettingsClaudeCodeRoute
@@ -172,6 +185,8 @@ export interface FileRoutesByFullPath {
   '/settings/shortcuts': typeof SettingsShortcutsRoute
   '/threads/$threadId': typeof ThreadsThreadIdRoute
   '/hub/': typeof HubIndexRoute
+  '/settings/agent-teams/agents': typeof SettingsAgentTeamsAgentsRoute
+  '/settings/agent-teams/teams': typeof SettingsAgentTeamsTeamsRoute
   '/settings/providers/$providerName': typeof SettingsProvidersProviderNameRoute
   '/settings/providers/': typeof SettingsProvidersIndexRoute
 }
@@ -182,7 +197,7 @@ export interface FileRoutesByTo {
   '/hub/$modelId': typeof HubModelIdRoute
   '/local-api-server/logs': typeof LocalApiServerLogsRoute
   '/project/$projectId': typeof ProjectProjectIdRoute
-  '/settings/agent-teams': typeof SettingsAgentTeamsRoute
+  '/settings/agent-teams': typeof SettingsAgentTeamsRouteWithChildren
   '/settings/assistant': typeof SettingsAssistantRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/claude-code': typeof SettingsClaudeCodeRoute
@@ -197,6 +212,8 @@ export interface FileRoutesByTo {
   '/settings/shortcuts': typeof SettingsShortcutsRoute
   '/threads/$threadId': typeof ThreadsThreadIdRoute
   '/hub': typeof HubIndexRoute
+  '/settings/agent-teams/agents': typeof SettingsAgentTeamsAgentsRoute
+  '/settings/agent-teams/teams': typeof SettingsAgentTeamsTeamsRoute
   '/settings/providers/$providerName': typeof SettingsProvidersProviderNameRoute
   '/settings/providers': typeof SettingsProvidersIndexRoute
 }
@@ -208,7 +225,7 @@ export interface FileRoutesById {
   '/hub/$modelId': typeof HubModelIdRoute
   '/local-api-server/logs': typeof LocalApiServerLogsRoute
   '/project/$projectId': typeof ProjectProjectIdRoute
-  '/settings/agent-teams': typeof SettingsAgentTeamsRoute
+  '/settings/agent-teams': typeof SettingsAgentTeamsRouteWithChildren
   '/settings/assistant': typeof SettingsAssistantRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/claude-code': typeof SettingsClaudeCodeRoute
@@ -223,6 +240,8 @@ export interface FileRoutesById {
   '/settings/shortcuts': typeof SettingsShortcutsRoute
   '/threads/$threadId': typeof ThreadsThreadIdRoute
   '/hub/': typeof HubIndexRoute
+  '/settings/agent-teams/agents': typeof SettingsAgentTeamsAgentsRoute
+  '/settings/agent-teams/teams': typeof SettingsAgentTeamsTeamsRoute
   '/settings/providers/$providerName': typeof SettingsProvidersProviderNameRoute
   '/settings/providers/': typeof SettingsProvidersIndexRoute
 }
@@ -250,6 +269,8 @@ export interface FileRouteTypes {
     | '/settings/shortcuts'
     | '/threads/$threadId'
     | '/hub/'
+    | '/settings/agent-teams/agents'
+    | '/settings/agent-teams/teams'
     | '/settings/providers/$providerName'
     | '/settings/providers/'
   fileRoutesByTo: FileRoutesByTo
@@ -275,6 +296,8 @@ export interface FileRouteTypes {
     | '/settings/shortcuts'
     | '/threads/$threadId'
     | '/hub'
+    | '/settings/agent-teams/agents'
+    | '/settings/agent-teams/teams'
     | '/settings/providers/$providerName'
     | '/settings/providers'
   id:
@@ -300,6 +323,8 @@ export interface FileRouteTypes {
     | '/settings/shortcuts'
     | '/threads/$threadId'
     | '/hub/'
+    | '/settings/agent-teams/agents'
+    | '/settings/agent-teams/teams'
     | '/settings/providers/$providerName'
     | '/settings/providers/'
   fileRoutesById: FileRoutesById
@@ -311,7 +336,7 @@ export interface RootRouteChildren {
   HubModelIdRoute: typeof HubModelIdRoute
   LocalApiServerLogsRoute: typeof LocalApiServerLogsRoute
   ProjectProjectIdRoute: typeof ProjectProjectIdRoute
-  SettingsAgentTeamsRoute: typeof SettingsAgentTeamsRoute
+  SettingsAgentTeamsRoute: typeof SettingsAgentTeamsRouteWithChildren
   SettingsAssistantRoute: typeof SettingsAssistantRoute
   SettingsAttachmentsRoute: typeof SettingsAttachmentsRoute
   SettingsClaudeCodeRoute: typeof SettingsClaudeCodeRoute
@@ -493,8 +518,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsProvidersProviderNameRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/agent-teams/teams': {
+      id: '/settings/agent-teams/teams'
+      path: '/teams'
+      fullPath: '/settings/agent-teams/teams'
+      preLoaderRoute: typeof SettingsAgentTeamsTeamsRouteImport
+      parentRoute: typeof SettingsAgentTeamsRoute
+    }
+    '/settings/agent-teams/agents': {
+      id: '/settings/agent-teams/agents'
+      path: '/agents'
+      fullPath: '/settings/agent-teams/agents'
+      preLoaderRoute: typeof SettingsAgentTeamsAgentsRouteImport
+      parentRoute: typeof SettingsAgentTeamsRoute
+    }
   }
 }
+
+interface SettingsAgentTeamsRouteChildren {
+  SettingsAgentTeamsAgentsRoute: typeof SettingsAgentTeamsAgentsRoute
+  SettingsAgentTeamsTeamsRoute: typeof SettingsAgentTeamsTeamsRoute
+}
+
+const SettingsAgentTeamsRouteChildren: SettingsAgentTeamsRouteChildren = {
+  SettingsAgentTeamsAgentsRoute: SettingsAgentTeamsAgentsRoute,
+  SettingsAgentTeamsTeamsRoute: SettingsAgentTeamsTeamsRoute,
+}
+
+const SettingsAgentTeamsRouteWithChildren =
+  SettingsAgentTeamsRoute._addFileChildren(SettingsAgentTeamsRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -503,7 +555,7 @@ const rootRouteChildren: RootRouteChildren = {
   HubModelIdRoute: HubModelIdRoute,
   LocalApiServerLogsRoute: LocalApiServerLogsRoute,
   ProjectProjectIdRoute: ProjectProjectIdRoute,
-  SettingsAgentTeamsRoute: SettingsAgentTeamsRoute,
+  SettingsAgentTeamsRoute: SettingsAgentTeamsRouteWithChildren,
   SettingsAssistantRoute: SettingsAssistantRoute,
   SettingsAttachmentsRoute: SettingsAttachmentsRoute,
   SettingsClaudeCodeRoute: SettingsClaudeCodeRoute,
