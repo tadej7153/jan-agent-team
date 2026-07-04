@@ -1,260 +1,109 @@
-# Contributing to Jan
+# Contributing to Jan Agent Team
 
-First off, thank you for considering contributing to Jan. It's people like you that make Jan such an amazing project.
+Jan Agent Team is a fork of [janhq/jan](https://github.com/janhq/jan). This repository keeps Jan's original desktop client experience and adds Agent / Agent Team features backed by a local AG2 runtime.
 
-Jan is an AI assistant that can run 100% offline on your device. Think ChatGPT, but private, local, and under your complete control. If you're thinking about contributing, you're already awesome - let's make AI accessible to everyone, one commit at a time.
+## Scope
 
-## Quick Links to Component Guides
+Contributions should stay focused on this fork:
 
-- **[Web App](./web-app/CONTRIBUTING.md)** - React UI and logic
-- **[Core SDK](./core/CONTRIBUTING.md)** - TypeScript SDK and extension system
-- **[Extensions](./extensions/CONTRIBUTING.md)** - Supportive modules for the frontend
-- **[Tauri Backend](./src-tauri/CONTRIBUTING.md)** - Rust native integration
-- **[Tauri Plugins](./src-tauri/plugins/CONTRIBUTING.md)** - Hardware and system plugins
+- Agent and Agent Team management
+- Multi-agent chat behavior
+- AG2 runtime integration
+- Jan-compatible UI and settings improvements
+- Build and release fixes for this fork
+- Upstream Jan compatibility fixes
 
-## How Jan Actually Works
-
-Jan is a desktop app that runs local AI models. Here's how the components actually connect:
-
-```
-┌──────────────────────────────────────────────────────────┐
-│                   Web App (Frontend)                     │
-│                      (web-app/)                          │
-│  • React UI                                              │
-│  • Chat Interface                                        │
-│  • Settings Pages                                        │
-│  • Model Hub                                             │
-└────────────┬─────────────────────────────┬───────────────┘
-             │                             │
-             │ imports                     │ imports
-             ▼                             ▼
-  ┌──────────────────────┐      ┌──────────────────────┐
-  │     Core SDK         │      │     Extensions       │
-  │      (core/)         │      │   (extensions/)      │
-  │                      │      │                      │
-  │ • TypeScript APIs    │◄─────│ • Assistant Mgmt     │
-  │ • Extension System   │ uses │ • Conversations      │
-  │ • Event Bus          │      │ • Downloads          │
-  │ • Type Definitions   │      │ • LlamaCPP           │
-  └──────────┬───────────┘      └───────────┬──────────┘
-             │                              │
-             │   ┌──────────────────────┐   │
-             │   │       Web App        │   │
-             │   └──────────┬───────────┘   │
-             │              │               │
-             └──────────────┼───────────────┘
-                            │
-                            ▼
-                        Tauri IPC
-                    (invoke commands)
-                            │
-                            ▼
-┌───────────────────────────────────────────────────────────┐
-│                   Tauri Backend (Rust)                    │
-│                      (src-tauri/)                         │
-│                                                           │
-│  • Window Management        • File System Access          │
-│  • Process Control          • System Integration          │
-│  • IPC Command Handler      • Security & Permissions      │
-└───────────────────────────┬───────────────────────────────┘
-                            │
-                            │
-                            ▼
-┌───────────────────────────────────────────────────────────┐
-│                   Tauri Plugins (Rust)                    │
-│                   (src-tauri/plugins/)                    │
-│                                                           │
-│     ┌──────────────────┐        ┌──────────────────┐      │
-│     │  Hardware Plugin │        │  LlamaCPP Plugin │      │
-│     │                  │        │                  │      │
-│     │ • CPU/GPU Info   │        │ • Process Mgmt   │      │
-│     │ • Memory Stats   │        │ • Model Loading  │      │
-│     │ • System Info    │        │ • Inference      │      │
-│     └──────────────────┘        └──────────────────┘      │
-└───────────────────────────────────────────────────────────┘
-```
-
-### The Communication Flow
-
-1. **JavaScript Layer Relationships**:
-   - Web App imports Core SDK and Extensions as JavaScript modules
-   - Extensions use Core SDK for shared functionality
-   - All run in the browser/webview context
-
-2. **All Three → Backend**: Through Tauri IPC
-   - **Web App** → Backend: `await invoke('app_command', data)`
-   - **Core SDK** → Backend: `await invoke('core_command', data)`
-   - **Extensions** → Backend: `await invoke('ext_command', data)`
-   - Each component can independently call backend commands
-
-3. **Backend → Plugins**: Native Rust integration
-   - Backend loads plugins as Rust libraries
-   - Direct function calls, no IPC overhead
-
-4. **Response Flow**:
-   - Plugin → Backend → IPC → Requester (Web App/Core/Extension) → UI updates
-
-### Real-World Example: Loading a Model
-
-Here's what actually happens when you click "Download Llama 3":
-
-1. **Web App** (`web-app/`) - User clicks download button
-2. **Extension** (`extensions/download-extension`) - Handles the download logic
-3. **Tauri Backend** (`src-tauri/`) - Actually downloads the file to disk
-4. **Extension** (`extensions/llamacpp-extension`) - Prepares model for loading
-5. **Tauri Plugin** (`src-tauri/plugins/llamacpp`) - Starts llama.cpp process
-6. **Hardware Plugin** (`src-tauri/plugins/hardware`) - Detects GPU, optimizes settings
-7. **Model ready!** - User can start chatting
-
-## Project Structure
-
-```
-jan/
-├── web-app/              # React frontend (what users see)
-├── src-tauri/            # Rust backend (system integration)
-│   ├── src/core/         # Core Tauri commands
-│   └── plugins/          # Tauri plugins (hardware, llamacpp)
-├── core/                 # TypeScript SDK (API layer)
-├── extensions/           # JavaScript extensions
-│   ├── assistant-extension/
-│   ├── conversational-extension/
-│   ├── download-extension/
-│   └── llamacpp-extension/
-├── docs/                 # Documentation website
-├── website/              # Marketing website
-├── autoqa/               # Automated testing
-├── scripts/              # Build utilities
-│
-├── package.json          # Root workspace configuration
-├── Makefile              # Build automation commands
-├── LICENSE               # Apache 2.0 license
-└── README.md             # Project overview
-```
+For issues in unmodified Jan features, please first check whether the same issue exists in upstream Jan.
 
 ## Development Setup
 
-### The Scenic Route (Build from Source)
+Prerequisites:
 
-**Prerequisites:**
-- Node.js ≥ 20.0.0
-- Yarn ≥ 4.5.3
-- Make ≥ 3.81
-- Rust (for Tauri)
-- (macOS Apple Silicon only) MetalToolchain `xcodebuild -downloadComponent MetalToolchain`
+- Node.js >= 20
+- Yarn >= 4.5.3
+- Rust stable
+- Tauri platform dependencies
+- macOS Apple Silicon builds require Xcode Command Line Tools
 
-**Option 1: The Easy Way (Make)**
-```bash
-git clone https://github.com/janhq/jan
-cd jan
-make dev
-```
-
-## How Can I Contribute?
-
-### Reporting Bugs
-
-- **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/janhq/jan/issues)
-- If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/janhq/jan/issues/new)
-- Include your system specs and error logs - it helps a ton
-- Provide clear steps to reproduce the issue so we can quickly identify the root cause
-- Attach screenshots or screen recordings whenever possible - a visual is worth a thousand words when debugging
-
-### Suggesting Enhancements
-
-- Open a new issue with a clear title and description
-- Explain why this enhancement would be useful
-- Include mockups or examples if you can
-
-### Your First Code Contribution
-
-**Choose Your Adventure:**
-- **Frontend UI and logic** → `web-app/`
-- **Shared API declarations** → `core/`
-- **Backend system integration** → `src-tauri/`
-- **Business logic features** → `extensions/`
-- **Dedicated backend handler** → `src-tauri/plugins/`
-
-**The Process:**
-1. Fork the repo
-2. Create a new branch (`git checkout -b feature-name`)
-3. Make your changes (and write tests!)
-4. Commit your changes (`git commit -am 'Add some feature'`)
-5. Push to the branch (`git push origin feature-name`)
-6. Open a new Pull Request against `main` branch
-
-## Testing
+Install dependencies:
 
 ```bash
-yarn test                    # All tests
-cd src-tauri && cargo test  # Rust tests
-cd autoqa && python main.py # End-to-end tests
+corepack enable
+corepack prepare yarn@4.5.3 --activate
+yarn install
 ```
 
-## Code Standards
+Run in development:
 
-### TypeScript/JavaScript
-- TypeScript required (we're not animals)
-- ESLint + Prettier
-- Functional React components
-- Proper typing (no `any` - seriously!)
-
-### Rust
-- `cargo fmt` + `cargo clippy`
-- `Result<T, E>` for error handling
-- Document public APIs
-
-## Git Conventions
-
-### Branches
-- `main` - main branch with latest & completed commits (target this branch for PRs)
-- `release/*` - stable releases or upcoming release candidate
-- `feature/*` - new features
-- `fix/*` - bug fixes
-
-### Commit Messages
-- Use the present tense ("Add feature" not "Added feature")
-- Be descriptive but concise
-- Reference issues when applicable
-
-Examples:
-```
-feat: add support for Qwen models
-fix: resolve memory leak in model loading
-docs: update installation instructions
+```bash
+yarn dev
 ```
 
-### Pull Request Requirements
-- Include a screenshot or screen recording in your PR description showing the change in action
-- For bug fixes: show both the **before** (broken behavior) and **after** (fixed behavior)
-- For new features or enhancements: demonstrate the feature working as expected
+## Useful Commands
 
-## Troubleshooting
+Type-check the web app:
 
-If things go sideways:
+```bash
+yarn workspace @janhq/web-app tsc -b
+```
 
-1. **Check our [troubleshooting docs](https://jan.ai/docs/desktop/troubleshooting)**
-2. **Clear everything and start fresh:** `make clean` then `make dev`
-3. **Copy your error logs and system specs**
-4. **Ask for help in our [Discord](https://discord.gg/FTk2MvZwJH)** `#🆘|jan-help` channel
+Run web app tests:
 
-Common issues:
-- **Build failures**: Check Node.js and Rust versions
-- **Extension not loading**: Verify it's properly registered
-- **Model not working**: Check hardware requirements and GPU drivers
+```bash
+yarn workspace @janhq/web-app test
+```
 
-## Getting Help
+Build macOS Apple Silicon:
 
-- [Documentation](https://jan.ai/docs) - The manual you should read
-- [Discord Community](https://discord.gg/FTk2MvZwJH) - Where the community lives
-- [GitHub Issues](https://github.com/janhq/jan/issues) - Report bugs here
-- [GitHub Discussions](https://github.com/janhq/jan/discussions) - Ask questions
+```bash
+yarn tauri build --target aarch64-apple-darwin
+```
+
+## Project Areas
+
+- `web-app/` - React UI, settings pages, chat UI, Agent / Team selection
+- `src-tauri/` - Tauri backend, app resources, runtime process management
+- `src-tauri/resources/agent-runtime/` - local Python runtime for Agent Team mode
+- `core/` - shared TypeScript SDK and types inherited from Jan
+- `extensions/` - Jan extension modules inherited from Jan
+- `.github/workflows/` - build and release workflows
+
+## Pull Requests
+
+Please include:
+
+- A short description of the user-facing change
+- Screenshots or screen recordings for UI changes
+- Test results for the relevant area
+- Notes about any upstream Jan compatibility risk
+
+Keep changes small when possible. Avoid unrelated refactors in the same PR.
+
+## Upstream Jan Updates
+
+This fork should keep `janhq/jan` as an upstream remote:
+
+```bash
+git remote add upstream https://github.com/janhq/jan.git
+git fetch upstream
+git merge upstream/main
+```
+
+When merging upstream, pay special attention to:
+
+- Thread, assistant, provider, and model data structures
+- Tauri resource bundling and permissions
+- Settings routes and generated route tree
+- Chat input and Assistant selector behavior
+- Runtime process startup and bundled resource paths
+
+## Do Not Commit
+
+- API keys, tokens, cookies, or private provider configs
+- Local build output, installers, DMG files, zip artifacts, or temporary tools
+- `node_modules/`
+- User-specific app data or logs
 
 ## License
 
-Apache 2.0 - Because sharing is caring. See [LICENSE](./LICENSE) for the legal stuff.
-
-## Additional Notes
-
-We're building something pretty cool here - an AI assistant that respects your privacy and runs entirely on your machine. Every contribution, no matter how small, helps make AI more accessible to everyone.
-
-Thanks for being part of the journey. Let's build the future of local AI together! 🚀
+This project follows the upstream Jan license. See [LICENSE](LICENSE).
